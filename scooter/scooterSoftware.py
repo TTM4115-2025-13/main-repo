@@ -33,7 +33,7 @@ class ScooterLogic:
             'source': 'available',
             'target': 'claimed', 
             'trigger':'claim', 
-            'effect': 'claim_scooter; start_timer("t_claimed")'
+            'effect': 'claim_scooter; start_timer("t_claimed", 10000)'
         }
 
         send_position = {
@@ -67,7 +67,7 @@ class ScooterLogic:
 
         available = {
             'name': 'available',
-            'entry': 'start_timer("t_pos", 3000)'
+            'entry': 'start_timer("t_pos", 10000)'
         }
 
         claimed = {
@@ -93,22 +93,26 @@ class ScooterLogic:
         self._logger.debug('Claim scooter')
 
         #TODO Stop scooter from being claimed
-        self.client.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
+        self.client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
+        print("claim scooter")
         pass
 
     def unclaim_scooter(self):
         self._logger.debug('Unclaim scooter')
-        self.client.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Unclaim scooter')
+        self.client.publish(MQTT_TOPIC_OUTPUT, f'Unclaim scooter')
+        print("unclaim scooter")
         pass
 
     def unlock_scooter(self):
         self._logger.debug('Unlock scooter')
-        self.client.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Unlock scooter')
+        self.client.publish(MQTT_TOPIC_OUTPUT, f'Unlock scooter')
+        print("unlock scooter")
         pass
 
     def lock_scooter(self):
         self._logger.debug('Lock scooter')
-        self.client.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Lock scooter')
+        self.client.publish(MQTT_TOPIC_OUTPUT, f'Lock scooter')
+        print("lock scooter")
         pass
 
 class MQTT_Scooter_Client:
@@ -138,16 +142,19 @@ class MQTT_Scooter_Client:
         print("on_connect(): {}".format(mqtt.connack_string(rc)))
 
     def on_message(self, client, userdata, msg):
+        try:
+            payload = json.loads(msg.payload.decode("utf-8"))
+        except Exception as err:
+            self._logger.error('Message sent to topic {} had no valid JSON. Message ignored. {}'.format(msg.topic, err))
+            return
 
-        if msg.topic == "ttm4115/team-13/scooter/":
-            print("Her kommer det noe")
-            match msg.payload:
-                case "claim":
-                    self.stm_driver.send("claim", "scooterMachine")
-                case "unlock":
-                    self.stm_driver.send("unlock", "scooterMachine")
-                case "stop_renting":
-                    self.stm_driver.send("stop_renting", "scooterMachine")
+        match payload.get('msg'):
+            case "claim":
+                self.stm_driver.send("claim", "scooterMachine")
+            case "unlock":
+                self.stm_driver.send("unlock", "scooterMachine")
+            case "stop_renting":
+                self.stm_driver.send("stop_renting", "scooterMachine")
 
     def start(self, broker, port):
         self.client.connect(broker, port)
