@@ -1,10 +1,15 @@
 # Python 3 server example
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import paho.mqtt.client as mqtt
+from threading import Thread
 import json
 
 
 hostName = "172.20.10.9"
 serverPort = 8080
+
+mqttBroker = "mqtt20.iik.ntnu.no"
+mqttPort = 1883
 
 
 class Scooter():
@@ -17,6 +22,28 @@ class Scooter():
 
 class Server(BaseHTTPRequestHandler):
     scooters = {}
+    
+    def __init__(self, broker, port):
+        self.client = mqtt.Client()
+        self.client.on_connect = self.mqtt_on_connect
+        self.client.on_message = self.mqtt_on_message
+
+        print("Connecting to {}:{}".format(broker, port))
+        self.client.connect(broker, port)
+
+        #TODO: Subscribe til riktig topics
+        #self.client.subscribe("gruppe-13/inge-tick")
+
+        try:
+            # line below should not have the () after the function!
+            thread = Thread(target=self.client.loop_forever)
+            thread.start()
+        except KeyboardInterrupt:
+            print("Interrupted")
+            self.client.disconnect()
+
+    def mqtt_on_connect(self, client, userdata, flags, rc):
+        print("on_connect(): {}".format(mqtt.connack_string(rc)))
 
     def do_GET(self):
         payload = {}
@@ -48,9 +75,14 @@ class Server(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(bytes(json.dumps(payload), 'utf-8'))
 
+    def mqtt_on_message(self, client, userdata, msg):
+        print("on_message(): topic: {}".format(msg.topic))
+        self.stm_driver.send("message", "tick_tock")
+
+
 
 if __name__ == "__main__":        
-    webServer = HTTPServer((hostName, serverPort), Server)
+    webServer = HTTPServer((hostName, serverPort), Server(mqttBroker, mqttPort))
     print("Server started http://%s:%s" % (hostName, serverPort))
 
     try:
