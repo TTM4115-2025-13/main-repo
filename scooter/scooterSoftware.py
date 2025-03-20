@@ -82,26 +82,29 @@ class ScooterLogic:
 
 
     def send_position(self):
-        self._logger.debug('{} timer completed'.format(self.name))
-        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Your {self.name} timer is ready!')
+        self._logger.debug('Send position')
+        #TODO Send position data
+        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Scooter position data')
         pass
 
     def claim_scooter(self):
-        self._logger.debug('Reporting status of timer {}'.format(self.name))
-        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'You have {self.stm.get_timer("t")/1000} s left of the {self.name} timer.')
+        self._logger.debug('Claim scooter')
+
+        #TODO Stop scooter from being claimed
+        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
         pass
 
     def unclaim_scooter(self):
-        self._logger.debug('Reporting status of timer {}'.format(self.name))
-        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'You have {self.stm.get_timer("t")/1000} s left of the {self.name} timer.')
+        self._logger.debug('Unclaim scooter')
+        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Unclaim scooter')
         pass
 
     def unlock_scooter(self):
-        self._logger.debug('Reporting status of timer {}'.format(self.name))
-        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'You have {self.stm.get_timer("t")/1000} s left of the {self.name} timer.')
+        self._logger.debug('Unlock scooter')
+        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Unlock scooter')
         pass
 
     def lock_scooter(self):
-        self._logger.debug('Reporting status of timer {}'.format(self.name))
-        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'You have {self.stm.get_timer("t")/1000} s left of the {self.name} timer.')
+        self._logger.debug('Lock scooter')
+        self.component.mqtt_client.publish(MQTT_TOPIC_OUTPUT, f'Lock scooter')
         pass
