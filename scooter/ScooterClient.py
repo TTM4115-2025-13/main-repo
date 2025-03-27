@@ -31,14 +31,14 @@ class ScooterClient:
     def on_connect(self, client, userdata, flags, rc):
         print("on_connect(): {}".format(mqtt.connack_string(rc)))
 
-    def on_message(self, client, userdata, msg):
+    def on_message(self, client, userdata, message):
         try:
-            payload = json.loads(msg.payload.decode("utf-8"))
+            payload = json.loads(message.payload.decode("utf-8"))
         except Exception as err:
-            self._logger.error('Message sent to topic {} had no valid JSON. Message ignored. {}'.format(msg.topic, err))
+            self._logger.error('Message sent to topic {} had no valid JSON. Message ignored. {}'.format(message.topic, err))
             return
-
-        match payload.get('msg'):
+        print("message " + str(payload))
+        match payload.get('command'):
             case "claim":
                 self.stm_driver.send("claim", "scooterMachine")
             case "unlock":
@@ -49,7 +49,7 @@ class ScooterClient:
     def start(self, broker, port):
         self.client.connect(broker, port)
 
-        self.client.subscribe("ttm4115/team-13/scooter/#")
+        self.client.subscribe(f"ttm4115/team-13/scooter/{self.id}/command")
 
         try:
             # line below should not have the () after the function!
