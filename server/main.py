@@ -3,6 +3,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import paho.mqtt.client as mqtt
 from threading import Thread
 import json
+import time
 
 
 hostName = "172.20.10.9"
@@ -10,6 +11,9 @@ serverPort = 8080
 
 mqttBroker = "mqtt20.iik.ntnu.no"
 mqttPort = 1883
+mqttUnlockChannel = "ttm4115/team-13/scooter"
+mqttResponseChannel = "ttm4115/team-13/scooter"
+scooterUnlockTimeout = 10
 
 
 class Scooter():
@@ -31,8 +35,7 @@ class Server(BaseHTTPRequestHandler):
         print("Connecting to {}:{}".format(broker, port))
         self.client.connect(broker, port)
 
-        #TODO: Subscribe til riktig topics
-        #self.client.subscribe("gruppe-13/inge-tick")
+        self.client.subscribe(mqttResponseChannel)
 
         try:
             # line below should not have the () after the function!
@@ -62,8 +65,14 @@ class Server(BaseHTTPRequestHandler):
 
         if self.path.split('?')[0] == '/rent_scooter':
             sid = self.path.split('?')[1]
+
             #TODO: Hva om den allerede var låst?
-            self.scooters[sid].locked = True
+
+            #self.client.publish(mqttUnlockChannel, {'id': sid})
+            #sendTime = time.time()            
+            #while time.time() < sendTime + scooterUnlockTimeout:
+            #    continue
+            #self.scooters[sid].locked = True
 
         if self.path.split('?')[0] == '/unrent_scooter':
             sid = self.path.split('?')[1]
