@@ -1,5 +1,6 @@
 import stmpy
 import logging
+from Display import display_text, display_status
 
 
 MQTT_BROKER = 'mqtt20.iik.ntnu.no'
@@ -88,22 +89,26 @@ class ScooterLogic:
         #TODO Stop scooter from being claimed
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
         print("claim scooter")
+        display_text("Scooter claimed", "green")
         pass
 
     def unclaim_scooter(self):
         self._logger.debug('Unclaim scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Unclaim scooter')
         print("unclaim scooter")
+        display_text("Scooter unclaimed", "red")
         pass
 
     def unlock_scooter(self):
         self._logger.debug('Unlock scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Unlock scooter')
         print("unlock scooter")
+        display_status("unlocked", "green")
         pass
 
     def lock_scooter(self):
         self._logger.debug('Lock scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Lock scooter')
         print("lock scooter")
+        display_status("locked", "red")
         pass
