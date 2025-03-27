@@ -5,6 +5,9 @@ import json
 from appJar import gui
 
 import random
+import requests
+import asyncio
+
 
 MQTT_BROKER = 'mqtt20.iik.ntnu.no'
 MQTT_PORT = 1883
@@ -12,9 +15,8 @@ MQTT_PORT = 1883
 MQTT_TOPIC_INPUT = 'ttm4115/team_13/command'
 MQTT_TOPIC_OUTPUT = 'ttm4115/team_13/answer'
 
+# Used for simulating scooters
 class Scooter:
-    x = 5
-
     def __init__(self, id, distance, battery):
         self.id = id
         self.distance = distance
@@ -25,6 +27,7 @@ class Scooter:
 
 list_of_scooters = []
 
+# Create 3 random scooters
 for i in range(3):
     dist = str(random.randint(100,500))+'m'
     battery = str(random.randint(0,100))+'%'
@@ -43,7 +46,10 @@ class TimerCommandSenderComponent:
     def on_message(self, client, userdata, msg):
         pass
 
-    def __init__(self):
+    def __init__(self, scooterList):
+
+        self.scooterList = scooterList
+
         # get the logger object for the component
         self._logger = logging.getLogger(__name__)
         print('logging under name {}.'.format(__name__))
@@ -68,22 +74,6 @@ class TimerCommandSenderComponent:
         self.app.setBg('#EEEEEE')
         self.app.setFg('#000000')
 
-
-        """
-        def extract_timer_name(label):
-            label = label.lower()
-            if 'spaghetti' in label: return 'spaghetti'
-            if 'green tea' in label: return 'green tea'
-            if 'soft eggs' in label: return 'soft eggs'
-            return None
-
-        def extract_duration_seconds(label):
-            label = label.lower()
-            if 'spaghetti' in label: return 600
-            if 'green tea' in label: return 120
-            if 'soft eggs' in label: return 240
-            return None
-        """
         def extract_scooter_id(label):
             label = label.lower()
             scooter_id = int(label[4])
@@ -98,6 +88,9 @@ class TimerCommandSenderComponent:
         self.app.startLabelFrame('List nearby scooters',0,0,1,2)
         def on_button_pressed_start():
             self.app.openLabelFrame('List nearby scooters')
+
+            #Commando for å liste scootere? Alt. HTTP GET 
+
             for i in range(len(list_of_scooters)):
                 self.app.addLabel(
                     'l{}'.format(i),
@@ -133,7 +126,7 @@ class TimerCommandSenderComponent:
                 'ID: {} - Stop rental'.format(id),on_button_pressed_stop
             )
 
-            command = {'command': 'rent_scooter', 'id' : id}
+            command = {'command': 'start_rental', 'id' : id}
             # publish_command(command)
             
             #Commando for å sende "start rental"
@@ -149,7 +142,10 @@ class TimerCommandSenderComponent:
             self.app.addButton(
                 'ID: {} - Unclaim'.format(id),on_button_pressed_unclaim
             )
-            #Commando for å sende "start rental"
+            #Commando for å sende "start claim"
+            command = {'command': 'start_claim', 'id' : id}
+            # publish_command(command)
+
         self.app.stopLabelFrame()
 
         ### LIST OF ACTIVE RENTALS
@@ -159,7 +155,12 @@ class TimerCommandSenderComponent:
             print('Stopped a rental of {}'.format(id))
             list_of_scooters[id].rented = False
             #Commando for å sende "stop rental"
-            self.app.setButton('ID: {} - Stop rental'.format(id), '')
+
+            self.app.setButton('ID: {} - Stop rental'.format(id), '') #Null peiling på kossen man sletter knapper
+
+            command = {'command': 'stop_rental', 'id' : id}
+            # publish_command(command)
+
         self.app.stopLabelFrame()
 
         ### LIST OF CLAIMS
@@ -168,44 +169,19 @@ class TimerCommandSenderComponent:
             id = extract_scooter_id(title)
             print('Stopped a claim of {}'.format(id))
             list_of_scooters[id].claimed = False
+            self.app.setButton('ID: {} - Unclaim'.format(id), '') #Null peiling på kossen man sletter knapper
+
             #Commando for å sende "stop claim"
-            self.app.setButton('ID: {} - Unclaim'.format(id), '')
+            command = {'command': 'unclaim_scooter', 'id' : id}
+            # publish_command(command)
+
         self.app.stopLabelFrame()
+        
+
+
+
         """
-        self.app.startLabelFrame('Starting timers:')
-        def on_button_pressed_start(title):
-            name = extract_timer_name(title)
-            duration = extract_duration_seconds(title)
-            command = {"command": "new_timer", "name": name, "duration": duration}
-            publish_command(command)
-        self.app.addButton('Start Spaghetti Timer', on_button_pressed_start)
-        self.app.addButton('Start Green Tea Timer', on_button_pressed_start)
-        self.app.addButton('Start Soft Eggs Timer', on_button_pressed_start)
-        self.app.stopLabelFrame()
-
-        self.app.startLabelFrame('Stopping timers:')
-        def on_button_pressed_stop(title):
-            name = extract_timer_name(title)
-            command = {"command": "cancel_timer", "name": name}
-            publish_command(command)
-        self.app.addButton('Cancel Spaghetti Timer', on_button_pressed_stop)
-        self.app.addButton('Cancel Green Tea Timer', on_button_pressed_stop)
-        self.app.addButton('Cancel Soft Eggs Timer', on_button_pressed_stop)
-        self.app.stopLabelFrame()
-
-        self.app.startLabelFrame('Asking for status:')
-        def on_button_pressed_status(title):
-            name = extract_timer_name(title)
-            if name is None:
-                command = {"command": "status_all_timers"}
-            else:
-                command = {"command": "status_single_timer", "name": name}
-            publish_command(command)
-        self.app.addButton('Get All Timers Status', on_button_pressed_status)
-        self.app.addButton('Get Spaghetti Timer Status', on_button_pressed_status)
-        self.app.addButton('Get Green Tea Timer Status', on_button_pressed_status)
-        self.app.addButton('Get Soft Eggs Timer Status', on_button_pressed_status)
-        self.app.stopLabelFrame()
+        Execute the component. 
         """
         self.app.go()
 
@@ -222,6 +198,9 @@ class TimerCommandSenderComponent:
 # logging.INFO:  Only the most important informational log items
 # logging.WARN:  Show only warnings and errors.
 # logging.ERROR: Show only error messages.
+
+"""
+
 debug_level = logging.DEBUG
 logger = logging.getLogger(__name__)
 logger.setLevel(debug_level)
@@ -231,4 +210,27 @@ formatter = logging.Formatter('%(asctime)s - %(name)-12s - %(levelname)-8s - %(m
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
-t = TimerCommandSenderComponent()
+"""
+
+
+# Async functions to ensure app is not created with an empty scooter list
+
+async def getScooters():
+    url = 'https://jsonplaceholder.typicode.com/posts/1'
+
+    response = requests.get(url)
+    print('async1')
+    return response.json()
+
+async def runApp():
+    scooterList= await getScooters()
+    print('async2')
+    return TimerCommandSenderComponent(scooterList)
+    
+
+
+
+t=asyncio.run(runApp())
+
+
+#t = TimerCommandSenderComponent()
