@@ -89,26 +89,26 @@ class ScooterLogic:
         #TODO Stop scooter from being claimed
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
         print("claim scooter")
-        display_text("Scooter claimed", "green")
+        display_text("Scooter claimed", [0, 255, 0])
         pass
 
     def unclaim_scooter(self):
         self._logger.debug('Unclaim scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Unclaim scooter')
         print("unclaim scooter")
-        display_text("Scooter unclaimed", "red")
+        display_text("Scooter unclaimed", [255, 0, 0])
         pass
 
     def unlock_scooter(self):
         self._logger.debug('Unlock scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Unlock scooter')
         print("unlock scooter")
-        display_status("unlocked", "green")
+        display_status("unlocked", [0, 255, 0])
         pass
 
     def lock_scooter(self):
         self._logger.debug('Lock scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Lock scooter')
         print("lock scooter")
-        display_status("locked", "red")
+        display_status("locked", [255, 0, 0])
         pass
