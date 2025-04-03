@@ -1,8 +1,8 @@
-import paho.mqtt.client as mqtt
-import logging
-from threading import Thread
-import json
+#import paho.mqtt.client as mqtt
+#from threading import Thread
+#import json
 from appJar import gui
+import logging
 
 import random
 import requests # type: ignore #Gidder ikkje fikse
@@ -11,7 +11,8 @@ import asyncio
 # Used for simulating scooters
 class Scooter:
     """
-    Temp class for parsing JSON data
+    Class for scooters\\
+    Need to revaluate how necessary this is, we only deal with "id"s on the frontend
     """
     def __init__(self, id, distance, battery):
         self.id = id
@@ -58,7 +59,7 @@ class UserApp:
         self.create_gui()
     
     def CustomGETrequest(self,command):
-        #server = 127.20.10.9:8080
+        server = '127.20.10.9:8080'
 
         #Temp solution
         return 1
@@ -169,16 +170,17 @@ class UserApp:
         self.app.stopLabelFrame()
 
 
-
         ### LIST OF ACTIVE RENTALS
         self.app.startLabelFrame('Active rentals',1,1,1)
         def on_button_pressed_stop(title):
             id = extract_scooter_id(title)
             self.scooterList[id].rented = False
-            self.app.setButton('ID: {} - Stop rental'.format(id), '') #Null peiling på kossen man sletter knapper
-            
+            print('Stopped a rental of {}'.format(id))
+
             command = Command('unrent',id)
             self.CustomGETrequest(command)
+
+            self.app.removeButton('ID: {} - Stop rental'.format(id)) #Deletes button, underlying tkinter function
 
         self.app.stopLabelFrame()
 
@@ -188,7 +190,8 @@ class UserApp:
             id = extract_scooter_id(title)
             print('Stopped a claim of {}'.format(id))
             self.scooterList[id].claimed = False
-            self.app.setButton('ID: {} - Unclaim'.format(id), '') #Null peiling på kossen man sletter knapper
+
+            self.app.removeButton('ID: {} - Unclaim'.format(id)) #Deletes button, underlying tkinter function
 
             command = Command('unclaim',id)
             self.CustomGETrequest(command)
@@ -219,21 +222,45 @@ logger.addHandler(ch)
 
 # Async functions to ensure app can connect to server and get list
 # Might remove and just start component
+
+async def testConnection(server):
+    canConnect = False
+
+    try:
+        response = requests.get(server) #Assumed to be enabled
+        if response.status_code==200:
+            print('Connection successfull')
+            canConnect = True
+        else:
+            print(f'Request failed with code: {response.status_code}')
+    except (requests.exceptions.HTTPError, requests.exceptions.ConnectionError) as err:
+        print(f'Failed to establish connection: {err}')
+    except Exception as e:
+        print(f'Unknown error occured : {e}')
+        
+    return canConnect
+
+"""
 async def getScooters():
     url = 'https://jsonplaceholder.typicode.com/posts/1'
 
     response = requests.get(url)
     parsedResponse = response.json()
     return parsedResponse
-
+"""
 async def runApp():
-    scooterList= await getScooters()
+    #scooterList= await getScooters()
 
     #TEMP solution:
     scooterList = list_of_scooters
 
+    able_to_connect = await testConnection('https://jsonplaceholder.typicode.com/posts/1')
 
-    return UserApp(scooterList,'127.20.10.9:8080')
+    if able_to_connect:
+        return UserApp(scooterList,'127.20.10.9:8080')
+    else:
+        print('Cannot connect to server')
+        
     
-t=asyncio.run(runApp())
+app=asyncio.run(runApp())
 
