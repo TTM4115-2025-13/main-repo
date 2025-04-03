@@ -1,6 +1,9 @@
 import stmpy
 import logging
-from Display import display_text, display_status
+from Display import display_text, display_status, display_battery
+from ZoneLogic import try_to_stop;
+import time
+import threading
 
 
 MQTT_BROKER = 'mqtt20.iik.ntnu.no'
@@ -17,24 +20,27 @@ class ScooterLogic:
     def __init__(self, client):
         self._logger = logging.getLogger(__name__)
         self.client = client
+        self.battery_level = 100
+
+        # Transitions
 
         initial = {
             'source': 'initial', 
-            'target': 'available'
+            'target': 'off'
+        }
+
+        start = {
+            'source': 'off', 
+            'target': 'available', 
+            'trigger': 'start', 
+            'effect': 'start_scooter'
         }
 
         claim = {
             'source': 'available',
             'target': 'claimed', 
             'trigger':'claim', 
-            'effect': 'claim_scooter; start_timer("t_claimed", 10000)'
-        }
-
-        send_position = {
-            'source': 'available',
-            'target': 'available',
-            'trigger': 't_pos',
-            'effect': 'send_position'
+            'effect': 'start_timer("t_claimed", 10000)'
         }
 
         unclaim = {
@@ -51,64 +57,117 @@ class ScooterLogic:
             'effect': 'unlock_scooter'
         }
 
+        battery_drained = {
+            'source': 'rented',
+            'target': 'off',
+            'trigger': 'battery_drained',
+            'effect': 'stop_battery_drain; battery_drained' 
+        }
+
         stop_rent = {
             'source': 'rented',
             'target': 'available', 
-            'trigger': 'stop_renting', 
-            'effect': 'lock_scooter'
+            'trigger': 'lock_scooter', 
+            'effect': 'stop_battery_drain'
         }
 
+        # States
+
+        off = {
+            'name': 'off',
+        }
 
         available = {
             'name': 'available',
-            'entry': 'start_timer("t_pos", 10000)'
+            'entry': 'on_available',
         }
 
         claimed = {
             'name': 'claimed',
-            }
+            'entry': 'claim_scooter'
+        }
 
         rented = {
             'name': 'rented',
-            'get_position': 'send_position()'
+            'entry': 'stop_timer("t_claimed"); start_battery_drain',
+            'stop_renting': 'lock_scooter()',
         }
         
-        self.stm = stmpy.Machine(name="scooterMachine", transitions=[initial, send_position, claim, unclaim,  rent, stop_rent], states=[available, claimed, rented], obj=self)
+        self.stm = stmpy.Machine(name="scooterMachine", transitions=[initial, start, claim, unclaim,  rent, stop_rent, battery_drained], states=[available, off, claimed, rented], obj=self)
 
-
-
-    def send_position(self):
-        self._logger.debug('Send position')
-        #TODO Send position data
-        self.client.publish(MQTT_TOPIC_OUTPUT, f'Scooter position data')
+    def start_scooter(self):
+        self._logger.debug('Start scooter')
+        self.client.publish(MQTT_TOPIC_OUTPUT, f'Scooter started')
+        print("start scooter")
+        display_text("Started", [0, 255, 0])
         pass
+
+    def on_available(self):
+        print("Scooter available")
+        display_battery(self.battery_level)
 
     def claim_scooter(self):
         self._logger.debug('Claim scooter')
-
-        #TODO Stop scooter from being claimed
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
         print("claim scooter")
-        display_text("Scooter claimed", [0, 255, 0])
+        display_text("Claimed", [0, 255, 0])
         pass
 
     def unclaim_scooter(self):
         self._logger.debug('Unclaim scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Unclaim scooter')
         print("unclaim scooter")
-        display_text("Scooter unclaimed", [255, 0, 0])
+        display_text("Unclaimed", [255, 0, 0])
         pass
 
     def unlock_scooter(self):
         self._logger.debug('Unlock scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Unlock scooter')
         print("unlock scooter")
-        display_status("unlocked", [0, 255, 0])
+        display_status("Unlocked", [0, 255, 0])
         pass
 
     def lock_scooter(self):
-        self._logger.debug('Lock scooter')
-        self.client.publish(MQTT_TOPIC_OUTPUT, f'Lock scooter')
-        print("lock scooter")
-        display_status("locked", [255, 0, 0])
+        if self.stm.state != "rented":
+            print("THE STATE IS NOT rented")
+        print("Scooter try to stop")
+        if (try_to_stop()):
+            self._logger.debug('Lock scooter')
+            self.client.publish(MQTT_TOPIC_OUTPUT, f'Lock scooter')
+            print("Scooter stopped and locked")
+            display_status("Locked", [0, 0, 255])
+            self.stm.send("lock_scooter", "scooterMachine")
+        else:
+            display_text("Invalid zone", [255, 0, 0])
+            print("Scooter not stopped")
         pass
+
+    def start_battery_drain(self):
+        """Starts a thread to drain the battery."""
+        self.running = True
+        self.battery_thread = threading.Thread(target=self.drain_battery)
+        self.battery_thread.start()
+
+    def stop_battery_drain(self):
+        """Stops the battery drain thread."""
+        self.running = False
+        if self.battery_thread:
+            self.battery_thread.join()
+
+    def drain_battery(self):
+        """Drains the battery level over time."""
+        while self.running:
+            if(self.battery_level>0):
+                self.battery_level -= 15
+            display_battery(self.battery_level)
+            self._logger.debug(f'Battery level: {self.battery_level}')
+            print(f'Battery level: {self.battery_level}')
+            if self.battery_level <= 0:
+                self._logger.debug('Battery drained')
+                self.stm.send("battery_drained", "scooterMachine")
+                self.running = False
+                display_text("Battery empty", [255, 0, 0])
+                
+            time.sleep(3)
+    def battery_drained(self):
+        print("Battery drained")
