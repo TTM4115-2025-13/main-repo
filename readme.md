@@ -56,12 +56,24 @@ source ./venv/bin/activate
 pip install -r requirements.txt
 ```
 
-5. Start the scooter client:
+1. Start the scooter client:
 
 ``` 
 python ScooterClient.py
 ```
 
+### If problems with RTIMU:
+- Clone RTIMULib:
+`git clone https://github.com/RPi-Distro/RTIMULib/ RTIMU`
+`cd RTIMU/Linux/python`
+- Follow instruction in RTIMULib/Linux/python:
+`sudo apt install python3-dev`
+`python setup.py build`
+`python setup.py install`
+- Install libopenjp2-7:
+`sudo apt install libopenjp2-7`
+- Install sense-hat:
+`sudo apt install sense-hat`
 ---
 
 ## Server
