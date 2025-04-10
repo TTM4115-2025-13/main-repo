@@ -71,7 +71,7 @@ class ScooterLogic:
         stop_rent = {
             'source': 'rented',
             'target': 'available', 
-            'trigger': 'lock_scooter', 
+            'trigger': 'stop_renting', 
             'effect': 'stop_battery_drain'
         }
 
@@ -95,7 +95,6 @@ class ScooterLogic:
         rented = {
             'name': 'rented',
             'entry': 'rented_state; stop_timer("t_claimed"); start_battery_drain',
-            'stop_renting': 'lock_scooter()',
         }
         
         self.stm = stmpy.Machine(name="scooterMachine", transitions=[initial, start, claim, unclaim,  rent, stop_rent, battery_drained], states=[available, off, claimed, rented], obj=self)
@@ -183,7 +182,8 @@ class ScooterLogic:
 
     def stop_battery_drain(self):
         """Stops the battery drain thread."""
-        self._logger.debug("Battery drain stopped")
+        print("STOP BATTERY DRAIN")
+        self._logger.info("Battery drain stopped")
         self.running = False
         if self.battery_thread:
             self.battery_thread.join()

@@ -1,5 +1,4 @@
 from Display import display_battery, display_text
-import logging
 import time
 
 def drain_battery(scooter):
@@ -13,6 +12,6 @@ def drain_battery(scooter):
             scooter._logger.debug('Battery drained')
             scooter.stm.send("battery_drained", "scooterMachine")
             scooter.running = False
+            display_text("Battery drained", [255, 0, 0])
         else:
             time.sleep(0.5)
-    display_text("Battery drained", [255, 0, 0])
