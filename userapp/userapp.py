@@ -14,7 +14,7 @@ class Scooter:
     Class for scooters\\
     Need to revaluate how necessary this is, we only deal with "id"s on the frontend
     """
-    def __init__(self, id, distance, battery):
+    def __init__(self, id, distance=None, battery=None):
         self.id = id
         self.distance = distance #Needed?
         self.battery = battery #Needed?
@@ -23,13 +23,6 @@ class Scooter:
 
 
 list_of_scooters = []
-
-# Create 3 random scooters
-for i in range(3):
-    dist = str(random.randint(100,500))+'m'
-    battery = str(random.randint(0,100))+'%'
-    list_of_scooters.append(Scooter(i,dist,battery))
-
 
 class Command:
     """
@@ -59,30 +52,29 @@ class UserApp:
         self.create_gui()
     
     def CustomGETrequest(self,command):
-        server = '127.20.10.9:8080'
+        server = 'http://localhost:8080'
 
         #Temp solution
-        return 1
-        url = self.server
+        url = server
 
         if command.title == 'list':
-            url += '/list-scooters'
+            url += '/list_available'
             response = requests.get(url)
             return response.json()
         elif command.title == 'rent':
-            url += '/rent_scooter/{}'.format(command.id)
+            url += '/rent_scooter?{}'.format(command.id)
             response = requests.get(url)
             return response.json()
         elif command.title == 'unrent':
-            url += '/unrent_scooter/{}'.format(command.id)
+            url += '/unrent_scooter?{}'.format(command.id)
             response = requests.get(url)
             return response.json()
         elif command.title == 'claim':
-            url += '/claim_scooter/{}'.format(command.id)
+            url += '/claim_scooter?{}'.format(command.id)
             response = requests.get(url)
             return response.json()
         elif command.title == 'unclaim':
-            url += '/unclaim_scooter/{}'.format(command.id)
+            url += '/unclaim_scooter?{}'.format(command.id)
             response = requests.get(url)
             return response.json()
         else:
@@ -109,7 +101,9 @@ class UserApp:
             self.app.openLabelFrame('List nearby scooters')
 
             command = Command('list')
-            #self.scooterList = self.CustomGETrequest(command)
+            for scooter in self.CustomGETrequest(command)['scooters']:
+                print(scooter)
+                self.scooterList.append(Scooter(id=scooter))
 
             for i in range(len(self.scooterList)):
                 self.app.addLabel(
