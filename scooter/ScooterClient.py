@@ -39,6 +39,8 @@ class ScooterClient:
             return
         print("message " + str(payload))
         match payload.get('command'):
+            case "start":
+                self.stm_driver.send("start", "scooterMachine")
             case "claim":
                 self.stm_driver.send("claim", "scooterMachine")
             case "unlock":

@@ -38,19 +38,25 @@ The scooter software runs on a Raspberry Pi and uses the Sense HAT for display a
 scp -r  .\scooter\ gruppe13@raspberrypi13:~/
 ```
 
-2. Start venv:
+2. Connect to raspberry pi
+
+```shell
+ssh gruppe13@raspberrypi13:~/scooter
+```
+
+3. Start venv:
 
 ```
 source ./venv/bin/activate
 ```
 
-3. Install dependencies:
+4. Install dependencies:
 
 ``` 
 pip install -r requirements.txt
 ```
 
-4. Start the scooter client:
+5. Start the scooter client:
 
 ``` 
 python ScooterClient.py
