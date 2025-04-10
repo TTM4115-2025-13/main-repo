@@ -21,7 +21,6 @@ class Scooter:
         self.rented = False
         self.claimed = False
 
-
 list_of_scooters = []
 
 class Command:
@@ -55,7 +54,7 @@ class UserApp:
         server = 'http://localhost:8080'
 
         #Temp solution
-        url = server
+        url = self.server
 
         if command.title == 'list':
             url += '/list_available'
@@ -134,8 +133,10 @@ class UserApp:
         
         def on_button_pressed_rent(title):
             id = extract_scooter_id(title)
-            print('rented scooter {}'.format(id))
-            self.scooterList[id].rented = True
+            index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
+            self.scooterList[index].rented = True
+            print('Started a rental of {}'.format(id))
+
             self.app.openLabelFrame('Active rentals')
             self.app.addButton(
                 'ID: {} - Stop rental'.format(id),on_button_pressed_stop
@@ -144,15 +145,15 @@ class UserApp:
             command = Command('rent',id)
             self.CustomGETrequest(command)
 
-
         self.app.stopLabelFrame()
 
         ### LIST OF SCOOTERS TO CLAIM
         self.app.startLabelFrame('Claim scooters',0,2,1)
         def on_button_pressed_claim(title):
             id = extract_scooter_id(title)
+            index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
             print('claimed scooter {}'.format(id))
-            self.scooterList[id].claimed = True
+            self.scooterList[index].claimed = True
             self.app.openLabelFrame('Active claims')
             self.app.addButton(
                 'ID: {} - Unclaim'.format(id),on_button_pressed_unclaim
@@ -168,7 +169,8 @@ class UserApp:
         self.app.startLabelFrame('Active rentals',1,1,1)
         def on_button_pressed_stop(title):
             id = extract_scooter_id(title)
-            self.scooterList[id].rented = False
+            index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
+            self.scooterList[index].rented = False
             print('Stopped a rental of {}'.format(id))
 
             command = Command('unrent',id)
@@ -182,8 +184,9 @@ class UserApp:
         self.app.startLabelFrame('Active claims',1,2,1)
         def on_button_pressed_unclaim(title):
             id = extract_scooter_id(title)
+            index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
             print('Stopped a claim of {}'.format(id))
-            self.scooterList[id].claimed = False
+            self.scooterList[index].claimed = False
 
             self.app.removeButton('ID: {} - Unclaim'.format(id)) #Deletes button, underlying tkinter function
 
@@ -242,19 +245,18 @@ async def getScooters():
     parsedResponse = response.json()
     return parsedResponse
 """
-async def runApp():
-    #scooterList= await getScooters()
+async def runApp(server):
 
     #TEMP solution:
     scooterList = list_of_scooters
 
-    able_to_connect = await testConnection('https://jsonplaceholder.typicode.com/posts/1')
+    able_to_connect = await testConnection(server)
 
     if able_to_connect:
-        return UserApp(scooterList,'127.20.10.9:8080')
+        return UserApp(scooterList,server)
     else:
         print('Cannot connect to server')
         
     
-app=asyncio.run(runApp())
+app=asyncio.run(runApp('http://localhost:8080'))
 
