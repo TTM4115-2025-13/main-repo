@@ -2,6 +2,7 @@ import stmpy
 import logging
 from Display import display_text, display_status, display_battery
 from ZoneLogic import try_to_stop;
+from BatteryLogic import drain_battery
 import time
 import threading
 
@@ -98,76 +99,63 @@ class ScooterLogic:
     def start_scooter(self):
         self._logger.debug('Start scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Scooter started')
-        print("start scooter")
+        self._logger.info("Scooter started")
         display_text("Started", [0, 255, 0])
         pass
 
     def on_available(self):
-        print("Scooter available")
+        self._logger.info("Scooter available")
         display_battery(self.battery_level)
 
     def claim_scooter(self):
         self._logger.debug('Claim scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
-        print("claim scooter")
+        self._logger.info("Scooter claimed")
         display_text("Claimed", [0, 255, 0])
         pass
 
     def unclaim_scooter(self):
         self._logger.debug('Unclaim scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Unclaim scooter')
-        print("unclaim scooter")
+        self._logger.info("Scooter unclaimed")
         display_text("Unclaimed", [255, 0, 0])
         pass
 
     def unlock_scooter(self):
         self._logger.debug('Unlock scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Unlock scooter')
-        print("unlock scooter")
+        self._logger.info("Scooter unlocked")
         display_status("Unlocked", [0, 255, 0])
         pass
 
     def lock_scooter(self):
         if self.stm.state != "rented":
-            print("THE STATE IS NOT rented")
-        print("Scooter try to stop")
-        if (try_to_stop()):
+            self._logger.warning("The state is not 'rented'")
+        self._logger.info("Scooter attempting to stop")
+        if try_to_stop():
             self._logger.debug('Lock scooter')
             self.client.publish(MQTT_TOPIC_OUTPUT, f'Lock scooter')
-            print("Scooter stopped and locked")
+            self._logger.info("Scooter stopped and locked")
             display_status("Locked", [0, 0, 255])
             self.stm.send("lock_scooter", "scooterMachine")
         else:
+            self._logger.warning("Scooter not stopped: Invalid zone")
             display_text("Invalid zone", [255, 0, 0])
-            print("Scooter not stopped")
         pass
 
     def start_battery_drain(self):
         """Starts a thread to drain the battery."""
         self.running = True
-        self.battery_thread = threading.Thread(target=self.drain_battery)
+        self.battery_thread = threading.Thread(target=drain_battery(self))
         self.battery_thread.start()
+        self._logger.info("Battery drain started")
 
     def stop_battery_drain(self):
         """Stops the battery drain thread."""
         self.running = False
         if self.battery_thread:
             self.battery_thread.join()
+        self._logger.info("Battery drain stopped")
 
-    def drain_battery(self):
-        """Drains the battery level over time."""
-        while self.running:
-            if(self.battery_level>0):
-                self.battery_level -= 15
-            display_battery(self.battery_level)
-            self._logger.debug(f'Battery level: {self.battery_level}')
-            print(f'Battery level: {self.battery_level}')
-            if self.battery_level <= 0:
-                self._logger.debug('Battery drained')
-                self.stm.send("battery_drained", "scooterMachine")
-                self.running = False
-                display_text("Battery empty", [255, 0, 0])
-                
-            time.sleep(3)
     def battery_drained(self):
-        print("Battery drained")
+        self._logger.warning("Battery drained")
