@@ -31,9 +31,10 @@ class MQTTComponent:
 
     def on_message(self, client, userdata, msg):
         try:
+            print("payload received at topic {}".format(msg.topic))
             payload = json.loads(msg.payload.decode("utf-8"))
         except Exception as err:
-            self._logger.error('Message sent to topic {} had no valid JSON. Message ignored. {}'.format(msg.topic, err))
+            print('Message sent to topic {} had no valid JSON. Message ignored. {}'.format(msg.topic, err))
             return
         
         command = payload.get('command')
@@ -41,7 +42,7 @@ class MQTTComponent:
         if command == 'scooter started':
             # expected : {"command": "scooter started", "id": int}
             id = payload.get('id')
-            response = requests.get(hostName+'/add_scooter?'+id)
+            response = requests.get('http://'+hostName+':'+str(serverPort)+'/add_scooter?'+id)
             if response.status_code == 200:
                 print('Scooter added successfully')
             pass
@@ -67,7 +68,16 @@ class MQTTComponent:
         self.mqtt_client.on_message = self.on_message
         self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
         self.mqtt_client.subscribe(mqttResponseChannel)
-        self.mqtt_client.loop_start()
+        
+
+        try:
+            # line below should not have the () after the function!
+            self.thread = Thread(target=self.mqtt_client.loop_forever)
+            self.thread.start()
+            print('thread started with id {}'.format(self.thread.getName()))
+        except KeyboardInterrupt:
+            print("Interrupted")
+            self.mqtt_client.disconnect()
 
 
     def stop(self):
@@ -76,6 +86,8 @@ class MQTTComponent:
         """
         # stop the MQTT client
         self.mqtt_client.loop_stop()
+        print('stopped')
+        
 
 
 class myHandler(BaseHTTPRequestHandler):
@@ -114,11 +126,11 @@ class myHandler(BaseHTTPRequestHandler):
 if __name__ == "__main__":        
     webServer = HTTPServer((hostName,serverPort),myHandler)
     print("Server started http://%s:%s" % (hostName, serverPort))
-
+    mqttbroker = MQTTComponent()
     try:
         webServer.serve_forever()
     except KeyboardInterrupt:
         pass
-
     webServer.server_close()
+    mqttbroker.stop()
     print("Server stopped.")
