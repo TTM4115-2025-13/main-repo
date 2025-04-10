@@ -1,3 +1,4 @@
+import argparse
 import paho.mqtt.client as mqtt
 from threading import Thread
 import json
@@ -7,17 +8,16 @@ import logging
 
 class ScooterClient:
     def __init__(self, id):
-          # Initialize logger
-        self._logger = logging.getLogger(__name__)
+        # Initialize logger
+        self._logger = logging.getLogger("ScooterClient")
+        self._logger.setLevel(logging.INFO)
         self._logger.info("ScooterClient initialized")
 
-
-        self.id = id
         self.client = mqtt.Client()
+        self.client.id = id
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
 
-        # broker, port = 'iot.eclipse.org', 1883
         broker, port = "mqtt20.iik.ntnu.no", 1883
 
         scooter = ScooterLogic(self.client)
@@ -64,7 +64,7 @@ class ScooterClient:
         self._logger.info("Connecting to MQTT broker at {}:{}".format(broker, port))
         self.client.connect(broker, port)
 
-        topic = f"ttm4115/team-13/scooter/{self.id}/command"
+        topic = f"ttm4115/team-13/scooter/{self.client.id}/command"
         self.client.subscribe(topic)
         self._logger.info("Subscribed to topic: {}".format(topic))
 
@@ -77,15 +77,18 @@ class ScooterClient:
             self.client.disconnect()
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 
-    debug_level = logging.INFO
-    _logger = logging.getLogger("ScooterClient")
-    _logger.setLevel(debug_level)
-    ch = logging.StreamHandler()
-    ch.setLevel(debug_level)
-    formatter = logging.Formatter('%(asctime)s - %(name)-12s - %(levelname)-8s - %(message)s')
-    ch.setFormatter(formatter)
-    _logger.addHandler(ch)
-    _logger.info("Starting ScooterClient")
+    parser = argparse.ArgumentParser(description="Start the ScooterClient.")
+    parser.add_argument(
+        "--id",
+        type=int,
+        default=1234,
+        help="The ID of the scooter (default: 1234)"
+    )
+    args = parser.parse_args()
 
-    ScooterClient(1234)
+    ScooterClient(args.id)

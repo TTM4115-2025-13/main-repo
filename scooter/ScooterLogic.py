@@ -3,7 +3,7 @@ import logging
 from Display import display_text, display_status, display_battery
 from ZoneLogic import try_to_stop;
 from BatteryLogic import drain_battery
-import time
+import json
 import threading
 
 
@@ -19,15 +19,9 @@ class ScooterLogic:
     This is the support object for a state machine that models a single scooter.
     """
     def __init__(self, client):
-        debug_level = logging.INFO
-        self._logger = logging.getLogger("ScooterLogic")
-        self._logger.setLevel(debug_level)
-        ch = logging.StreamHandler()
-        ch.setLevel(debug_level)
-        formatter = logging.Formatter('%(asctime)s - %(name)-12s - %(levelname)-8s - %(message)s')
-        ch.setFormatter(formatter)
-        self._logger.addHandler(ch)
 
+        self._logger = logging.getLogger("ScooterLogic")
+        self._logger.setLevel(logging.INFO)
         self._logger.info("Starting ScooterClient")
         self.client = client
         self.battery_level = 100
@@ -81,8 +75,8 @@ class ScooterLogic:
             'effect': 'stop_battery_drain'
         }
 
-        # States
 
+        # States
         off = {
             'name': 'off',
             'entry': 'off_state'
@@ -106,6 +100,8 @@ class ScooterLogic:
         
         self.stm = stmpy.Machine(name="scooterMachine", transitions=[initial, start, claim, unclaim,  rent, stop_rent, battery_drained], states=[available, off, claimed, rented], obj=self)
 
+
+    # State methods
     def off_state(self):
         self._logger.info("Scooter off")
 
@@ -115,29 +111,45 @@ class ScooterLogic:
 
     def claimed_state(self):
         self._logger.info("Scooter claimed")
-        self.client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
+        payload = {
+            'id': f'{self.client.id}',
+            'command': 'scooter_claimed',
+        }
+        self.client.publish(MQTT_TOPIC_OUTPUT, json.dumps(payload))
         display_text("Claimed", [0, 255, 0])
         pass
 
     def rented_state(self):
         self._logger.info("Scooter rented")
+        payload = {
+            'id': f'{self.client.id}',
+            'command': 'scooter_unlocked'
+        }
+        self.client.publish(MQTT_TOPIC_OUTPUT, json.dumps(payload))
 
+
+    # Transition methods
     def start_scooter(self):
         self._logger.debug('Start scooter')
-        self.client.publish(MQTT_TOPIC_OUTPUT, f'Scooter started')
+        payload = {
+            'id': f'{self.client.id}',
+            'command': 'scooter_started'
+        }
+        self.client.publish(MQTT_TOPIC_OUTPUT, json.dumps(payload))
         display_text("Started", [0, 255, 0])
         pass
 
     def unclaim_scooter(self):
         self._logger.debug('Unclaim scooter')
-        self.client.publish(MQTT_TOPIC_OUTPUT, f'Unclaim scooter')
+        payload = {
+            'id': f'{self.client.id}',
+            'command': 'scooter_unclaimed'
+        }
+        self.client.publish(MQTT_TOPIC_OUTPUT, json.dumps(payload))
         display_text("Unclaimed", [255, 0, 0])
         pass
 
     def unlock_scooter(self):
-        self._logger.debug('Unlock scooter')
-        self.client.publish(MQTT_TOPIC_OUTPUT, f'Unlock scooter')
-        self._logger.info("Scooter unlocked")
         display_status("Unlocked", [0, 255, 0])
         pass
 
@@ -147,28 +159,34 @@ class ScooterLogic:
         self._logger.info("Scooter attempting to stop")
         if try_to_stop():
             self._logger.debug('Lock scooter')
-            self.client.publish(MQTT_TOPIC_OUTPUT, f'Lock scooter')
+            payload = {
+                'id': f'{self.client.id}',
+                'command': 'scooter_locked'
+            }
+            self.client.publish(MQTT_TOPIC_OUTPUT, json.dumps(payload))
             self._logger.info("Scooter stopped and locked")
-            display_status("Locked", [0, 0, 255])
             self.stm.send("lock_scooter", "scooterMachine")
+            display_status("Locked", [0, 0, 255])
         else:
             self._logger.warning("Scooter not stopped: Invalid zone")
             display_text("Invalid zone", [255, 0, 0])
         pass
+    
 
+    # Battery draining
     def start_battery_drain(self):
         """Starts a thread to drain the battery."""
+        self._logger.debug("Battery drain started")
         self.running = True
         self.battery_thread = threading.Thread(target=drain_battery(self))
         self.battery_thread.start()
-        self._logger.info("Battery drain started")
 
     def stop_battery_drain(self):
         """Stops the battery drain thread."""
+        self._logger.debug("Battery drain stopped")
         self.running = False
         if self.battery_thread:
             self.battery_thread.join()
-        self._logger.info("Battery drain stopped")
 
     def battery_drained(self):
-        self._logger.warning("Battery drained")
+        self._logger.info("Battery drained")

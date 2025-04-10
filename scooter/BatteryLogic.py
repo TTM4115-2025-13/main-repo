@@ -6,7 +6,7 @@ def drain_battery(scooter):
     """Drains the battery level over time."""
     while scooter.running:
         if(scooter.battery_level>0):
-            scooter.battery_level -= 15
+            scooter.battery_level -= 0.5
         display_battery(scooter.battery_level)
         scooter._logger.info(f'Battery level: {scooter.battery_level}')
         if scooter.battery_level <= 0:
@@ -14,5 +14,5 @@ def drain_battery(scooter):
             scooter.stm.send("battery_drained", "scooterMachine")
             scooter.running = False
         else:
-            time.sleep(3)
+            time.sleep(0.5)
     display_text("Battery drained", [255, 0, 0])
