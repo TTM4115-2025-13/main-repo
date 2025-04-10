@@ -51,9 +51,6 @@ class UserApp:
         self.create_gui()
     
     def CustomGETrequest(self,command):
-        server = 'http://localhost:8080'
-
-        #Temp solution
         url = self.server
 
         if command.title == 'list':
@@ -90,7 +87,7 @@ class UserApp:
         #Read label to get unique object
         def extract_scooter_id(label):
             label = label.lower()
-            scooter_id = int(label[4])
+            scooter_id = int(label.split(' ')[1])
             return scooter_id
         
 
@@ -151,6 +148,7 @@ class UserApp:
         self.app.startLabelFrame('Claim scooters',0,2,1)
         def on_button_pressed_claim(title):
             id = extract_scooter_id(title)
+            print(id)
             index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
             print('claimed scooter {}'.format(id))
             self.scooterList[index].claimed = True
@@ -237,14 +235,7 @@ async def testConnection(server):
         
     return canConnect
 
-"""
-async def getScooters():
-    url = 'https://jsonplaceholder.typicode.com/posts/1'
 
-    response = requests.get(url)
-    parsedResponse = response.json()
-    return parsedResponse
-"""
 async def runApp(server):
 
     #TEMP solution:
@@ -258,5 +249,5 @@ async def runApp(server):
         print('Cannot connect to server')
         
     
-app=asyncio.run(runApp('http://localhost:8080'))
+app=asyncio.run(runApp('http://10.22.98.17:8080'))
 
