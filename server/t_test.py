@@ -4,7 +4,7 @@ import json
 import time
 import paho.mqtt.client as mqtt
 from threading import Thread
-import requests # type:ignore
+#import requests # type:ignore
 
 hostName = 'localhost'
 serverPort = 8080
@@ -42,9 +42,11 @@ class MQTTComponent:
         if command == 'scooter started':
             # expected : {"command": "scooter started", "id": int}
             id = payload.get('id')
-            response = requests.get('http://'+hostName+':'+str(serverPort)+'/add_scooter?'+id)
-            if response.status_code == 200:
-                print('Scooter added successfully')
+            #response = requests.get('http://'+hostName+':'+str(serverPort)+'/add_scooter?'+id)
+            #if response.status_code == 200:
+            #    print('Scooter added successfully')
+            self.httpserver.scooters[id] = Scooter(id)
+
             pass
         elif command == 'Lock scooter':
             # ignore
@@ -60,7 +62,7 @@ class MQTTComponent:
             pass
         else: 
             return print('Message sent to topic {} had no valid command. Message ignored'.format(msg.topic))
-    def __init__(self):
+    def __init__(self, httpserver):
         # create a new MQTT client
         print('Connecting to MQTT broker {} at port {}'.format(MQTT_BROKER, MQTT_PORT))
         self.mqtt_client = mqtt.Client()
@@ -68,6 +70,9 @@ class MQTTComponent:
         self.mqtt_client.on_message = self.on_message
         self.mqtt_client.connect(MQTT_BROKER, MQTT_PORT)
         self.mqtt_client.subscribe(mqttResponseChannel)
+
+        # Save reference to http server
+        self.httpserver = httpserver
         
 
         try:
@@ -123,10 +128,10 @@ class myHandler(BaseHTTPRequestHandler):
         self.wfile.write(bytes(json.dumps(payload), 'utf-8'))
 
 
-if __name__ == "__main__":        
+if __name__ == "__main__":
     webServer = HTTPServer((hostName,serverPort),myHandler)
     print("Server started http://%s:%s" % (hostName, serverPort))
-    mqttbroker = MQTTComponent()
+    mqttbroker = MQTTComponent(myHandler)
     try:
         webServer.serve_forever()
     except KeyboardInterrupt:
