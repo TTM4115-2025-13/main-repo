@@ -19,9 +19,14 @@ mqttResponseChannel = "ttm4115/team-13/scooter"
 class Scooter():
     id = -1
     locked = False
+    claimed = False
+    battery = 100
+    parked = True
 
     def __init__(self, id):
         self.id = id
+
+
 
 class MQTTComponent:
 
@@ -37,31 +42,31 @@ class MQTTComponent:
             print('Message sent to topic {} had no valid JSON. Message ignored. {}'.format(msg.topic, err))
             return
         
+        # Always expects "command" and "id"
         command = payload.get('command')
+        id = payload.get('id')
 
         if command == 'scooter started':
-            # expected : {"command": "scooter started", "id": int}
-            id = payload.get('id')
-            #response = requests.get('http://'+hostName+':'+str(serverPort)+'/add_scooter?'+id)
-            #if response.status_code == 200:
-            #    print('Scooter added successfully')
             self.httpserver.scooters[id] = Scooter(id)
-
-            pass
         elif command == 'Lock scooter':
+            self.httpserver.scooters[id].locked = True
             # ignore
             pass
         elif command == 'Unlock scooter':
+            self.httpserver.scooters[id].locked = False
             # ignore
             pass
         elif command == 'Unclaim scooter':
+            self.httpserver.scooters[id].claimed = False
             # ignore
             pass
         elif command == 'Claim Scooter':
+            self.httpserver.scooters[id].claimed = True
             # ignore
             pass
         else: 
             return print('Message sent to topic {} had no valid command. Message ignored'.format(msg.topic))
+        
     def __init__(self, httpserver):
         # create a new MQTT client
         print('Connecting to MQTT broker {} at port {}'.format(MQTT_BROKER, MQTT_PORT))
@@ -121,6 +126,20 @@ class myHandler(BaseHTTPRequestHandler):
             sid = self.path.split('?')[1]
             self.scooters[sid].locked = False
             print(f'INFO: Unrented scooter with ID {sid}')
+
+
+        if self.path.split('?')[0] == '/claim_scooter':
+            sid = self.path.split('?')[1]
+            sendTime = time.time()            
+            while time.time() < sendTime + scooterUnlockTimeout:
+                continue
+            self.scooters[sid].claimed = True
+            print(f'INFO: Rented scooter with ID {sid}')
+        if self.path.split('?')[0] == '/unclaim_scooter':
+            sid = self.path.split('?')[1]
+            self.scooters[sid].claimed = False
+            print(f'INFO: Unclaimed scooter with ID {sid}')
+
 
         self.send_response(200)
         self.send_header("Content-type", "application/json")
