@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 from threading import Thread
 #import requests # type:ignore
 
-hostName = 'localhost'
+hostName = '10.22.98.17'
 serverPort = 8080
 scooterUnlockTimeout = 5
 
@@ -18,7 +18,7 @@ mqttResponseChannel = "ttm4115/team-13/scooter"
 
 class Scooter():
     id = -1
-    locked = False
+    rented = False
     claimed = False
     battery = 100
     parked = True
@@ -36,7 +36,7 @@ class MQTTComponent:
 
     def on_message(self, client, userdata, msg):
         try:
-            print("payload received at topic {}".format(msg.topic))
+            #print("payload received at topic {}".format(msg.topic))
             payload = json.loads(msg.payload.decode("utf-8"))
         except Exception as err:
             print('Message sent to topic {} had no valid JSON. Message ignored. {}'.format(msg.topic, err))
@@ -44,24 +44,25 @@ class MQTTComponent:
         
         # Always expects "command" and "id"
         command = payload.get('command')
-        id = payload.get('id')
+        sid = payload.get('id')
 
-        if command == 'scooter started':
-            self.httpserver.scooters[id] = Scooter(id)
-        elif command == 'Lock scooter':
-            self.httpserver.scooters[id].locked = True
+        if command == 'scooter_started':
+            self.httpserver.scooters[sid] = Scooter(sid)
+            print(f'INFO: Scooter connected to network with ID {sid}')
+        elif command == 'scooter_unlocked':
+            self.httpserver.scooters[sid].rented = True
             # ignore
             pass
-        elif command == 'Unlock scooter':
-            self.httpserver.scooters[id].locked = False
+        elif command == 'scooter_locked':
+            self.httpserver.scooters[sid].rented = False
             # ignore
             pass
-        elif command == 'Unclaim scooter':
-            self.httpserver.scooters[id].claimed = False
+        elif command == 'scooter_claimed':
+            self.httpserver.scooters[sid].claimed = True
             # ignore
             pass
-        elif command == 'Claim Scooter':
-            self.httpserver.scooters[id].claimed = True
+        elif command == 'scooter_unclaimed':
+            self.httpserver.scooters[sid].claimed = False
             # ignore
             pass
         else: 
@@ -78,6 +79,7 @@ class MQTTComponent:
 
         # Save reference to http server
         self.httpserver = httpserver
+        self.httpserver.mqtt_client = self.mqtt_client
         
 
         try:
@@ -102,43 +104,88 @@ class MQTTComponent:
 
 class myHandler(BaseHTTPRequestHandler):
     scooters = {}
+    mqtt_client: mqtt.Client = None
 
     def do_GET(self):
         payload = {}
 
-        if self.path.split('?')[0] == '/add_scooter':
-            sid = self.path.split('?')[1]
-            self.scooters[sid] = Scooter(sid)
-            print(f'INFO: Added scooter with ID {sid}')
+        # if self.path.split('?')[0] == '/add_scooter':
+        #     sid = self.path.split('?')[1]
+        #     self.scooters[sid] = Scooter(sid)
+        #     print(f'INFO: Added scooter with ID {sid}')
+
         if self.path.split('?')[0] == '/list_available':
             payload['scooters'] = []
             for sid, scooter in self.scooters.items():
-                if not scooter.locked:
+                if not (scooter.rented or scooter.claimed):
                     payload['scooters'].append(scooter.id)
+
         if self.path.split('?')[0] == '/rent_scooter':
             sid = self.path.split('?')[1]
-            sendTime = time.time()            
+            self.mqtt_client.publish(mqttUnlockChannel+'/1234/command', json.dumps({"id":sid,"command":"unlock"}))
+            sendTime = time.time()
+            payload['status'] = 'failure'   
             while time.time() < sendTime + scooterUnlockTimeout:
-                continue
-            self.scooters[sid].locked = True
-            print(f'INFO: Rented scooter with ID {sid}')
+                if self.scooters[sid].rented:
+                    payload['status'] = 'success'
+                    break
+            if payload['status'] == 'success':
+                print(f'INFO: Rented scooter with ID {sid}')
+            else:
+                print(f'WARNING: Failed to rent scooter with ID {sid}. No response from scooter')
+
         if self.path.split('?')[0] == '/unrent_scooter':
+            #TODO: Check that message comes from the scooter owner
             sid = self.path.split('?')[1]
-            self.scooters[sid].locked = False
-            print(f'INFO: Unrented scooter with ID {sid}')
+            self.mqtt_client.publish(mqttUnlockChannel+'/1234/command', json.dumps({"id":sid,"command":"stop_renting"}))
+            sendTime = time.time()
+            status = 'failure'   
+            while time.time() < sendTime + scooterUnlockTimeout:
+                if self.scooters[sid].rented == False:
+                    status = 'success'
+                    break
+            if status == 'success':
+                print(f'INFO: Unrented scooter with ID {sid}')
+            else:
+                print(f'WARNING: Failed to unrent scooter with ID {sid}. No response from scooter')
+            # User should be able to stop paying even if the scooter to server connection fails
+            #TODO: Mark scooter as broken or some shit
+            payload['status'] = 'success'
+            self.scooters[sid].rented = False
 
 
         if self.path.split('?')[0] == '/claim_scooter':
             sid = self.path.split('?')[1]
+            self.mqtt_client.publish(mqttUnlockChannel+'/1234/command', json.dumps({"id":sid,"command":"claim"}))
             sendTime = time.time()            
+            payload['status'] = 'failure'
             while time.time() < sendTime + scooterUnlockTimeout:
-                continue
-            self.scooters[sid].claimed = True
-            print(f'INFO: Rented scooter with ID {sid}')
+                if self.scooters[sid].claimed:
+                    payload['status'] = 'success'
+                    break
+            if payload['status'] == 'success':
+                print(f'INFO: Claimed scooter with ID {sid}')
+            else:
+                print(f'WARNING: Failed to claim scooter with ID {sid}. No response from scooter')
+
         if self.path.split('?')[0] == '/unclaim_scooter':
+            #TODO: Check that the client has claimed the scooter
             sid = self.path.split('?')[1]
+            self.mqtt_client.publish(mqttUnlockChannel+'/1234/command', json.dumps({"id":sid,"command":"unclaim"}))
+            sendTime = time.time()
+            status = 'failure'
+            while time.time() < sendTime + scooterUnlockTimeout:
+                if self.scooters[sid].claimed == False:
+                    status = 'success'
+                    break
+            if status == 'success':
+                print(f'INFO: Unclaimed scooter with ID {sid}')
+            else:
+                print(f'WARNING: Failed to unclaim scooter with ID {sid}. No response from scooter')
+            # User should be able to stop paying even if the scooter to server connection fails
+            #TODO: Mark scooter as broken or some shit
+            payload['status'] = 'success'
             self.scooters[sid].claimed = False
-            print(f'INFO: Unclaimed scooter with ID {sid}')
 
 
         self.send_response(200)
@@ -148,9 +195,9 @@ class myHandler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    mqttbroker = MQTTComponent(myHandler)
     webServer = HTTPServer((hostName,serverPort),myHandler)
     print("Server started http://%s:%s" % (hostName, serverPort))
-    mqttbroker = MQTTComponent(myHandler)
     try:
         webServer.serve_forever()
     except KeyboardInterrupt:
