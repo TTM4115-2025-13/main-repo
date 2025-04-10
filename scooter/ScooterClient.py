@@ -79,7 +79,7 @@ class ScooterClient:
 if __name__ == "__main__":
 
     debug_level = logging.INFO
-    _logger = logging.getLogger(__name__)
+    _logger = logging.getLogger("ScooterClient")
     _logger.setLevel(debug_level)
     ch = logging.StreamHandler()
     ch.setLevel(debug_level)

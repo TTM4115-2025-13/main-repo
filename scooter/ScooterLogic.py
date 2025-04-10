@@ -19,7 +19,16 @@ class ScooterLogic:
     This is the support object for a state machine that models a single scooter.
     """
     def __init__(self, client):
-        self._logger = logging.getLogger(__name__)
+        debug_level = logging.INFO
+        self._logger = logging.getLogger("ScooterLogic")
+        self._logger.setLevel(debug_level)
+        ch = logging.StreamHandler()
+        ch.setLevel(debug_level)
+        formatter = logging.Formatter('%(asctime)s - %(name)-12s - %(levelname)-8s - %(message)s')
+        ch.setFormatter(formatter)
+        self._logger.addHandler(ch)
+
+        self._logger.info("Starting ScooterClient")
         self.client = client
         self.battery_level = 100
 
@@ -76,48 +85,52 @@ class ScooterLogic:
 
         off = {
             'name': 'off',
+            'entry': 'off_state'
         }
 
         available = {
             'name': 'available',
-            'entry': 'on_available',
+            'entry': 'available_state',
         }
 
         claimed = {
             'name': 'claimed',
-            'entry': 'claim_scooter'
+            'entry': 'claimed_state'
         }
 
         rented = {
             'name': 'rented',
-            'entry': 'stop_timer("t_claimed"); start_battery_drain',
+            'entry': 'rented_state; stop_timer("t_claimed"); start_battery_drain',
             'stop_renting': 'lock_scooter()',
         }
         
         self.stm = stmpy.Machine(name="scooterMachine", transitions=[initial, start, claim, unclaim,  rent, stop_rent, battery_drained], states=[available, off, claimed, rented], obj=self)
 
-    def start_scooter(self):
-        self._logger.debug('Start scooter')
-        self.client.publish(MQTT_TOPIC_OUTPUT, f'Scooter started')
-        self._logger.info("Scooter started")
-        display_text("Started", [0, 255, 0])
-        pass
+    def off_state(self):
+        self._logger.info("Scooter off")
 
-    def on_available(self):
+    def available_state(self):
         self._logger.info("Scooter available")
         display_battery(self.battery_level)
 
-    def claim_scooter(self):
-        self._logger.debug('Claim scooter')
-        self.client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
+    def claimed_state(self):
         self._logger.info("Scooter claimed")
+        self.client.publish(MQTT_TOPIC_OUTPUT, f'Claim scooter')
         display_text("Claimed", [0, 255, 0])
+        pass
+
+    def rented_state(self):
+        self._logger.info("Scooter rented")
+
+    def start_scooter(self):
+        self._logger.debug('Start scooter')
+        self.client.publish(MQTT_TOPIC_OUTPUT, f'Scooter started')
+        display_text("Started", [0, 255, 0])
         pass
 
     def unclaim_scooter(self):
         self._logger.debug('Unclaim scooter')
         self.client.publish(MQTT_TOPIC_OUTPUT, f'Unclaim scooter')
-        self._logger.info("Scooter unclaimed")
         display_text("Unclaimed", [255, 0, 0])
         pass
 
