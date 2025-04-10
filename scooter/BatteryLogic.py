@@ -13,6 +13,6 @@ def drain_battery(scooter):
             scooter._logger.debug('Battery drained')
             scooter.stm.send("battery_drained", "scooterMachine")
             scooter.running = False
-            display_text("Battery empty", [255, 0, 0])
-            
-        time.sleep(3)
+        else:
+            time.sleep(3)
+    display_text("Battery drained", [255, 0, 0])
