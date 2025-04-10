@@ -2,8 +2,9 @@ import stmpy
 import logging
 from Display import display_text, display_status, display_battery
 from ZoneLogic import try_to_stop;
-from BatteryLogic import drain_battery
+#from BatteryLogic import drain_battery
 import json
+import time
 import threading
 
 
@@ -71,8 +72,8 @@ class ScooterLogic:
         stop_rent = {
             'source': 'rented',
             'target': 'available', 
-            'trigger': 'stop_renting', 
-            'effect': 'stop_battery_drain'
+            'trigger': 'lock_scooter', 
+            'effect': 'stop_battery_drain;'
         }
 
 
@@ -94,7 +95,8 @@ class ScooterLogic:
 
         rented = {
             'name': 'rented',
-            'entry': 'rented_state; stop_timer("t_claimed"); start_battery_drain',
+            'entry': 'rented_state; stop_timer("t_claimed")',
+            'stop_renting': 'lock_scooter'
         }
         
         self.stm = stmpy.Machine(name="scooterMachine", transitions=[initial, start, claim, unclaim,  rent, stop_rent, battery_drained], states=[available, off, claimed, rented], obj=self)
@@ -124,6 +126,7 @@ class ScooterLogic:
             'id': f'{self.client.id}',
             'command': 'scooter_unlocked'
         }
+        self.start_battery_drain()
         self.client.publish(MQTT_TOPIC_OUTPUT, json.dumps(payload))
 
 
@@ -177,12 +180,17 @@ class ScooterLogic:
         """Starts a thread to drain the battery."""
         self._logger.debug("Battery drain started")
         self.running = True
-        self.battery_thread = threading.Thread(target=drain_battery(self))
-        self.battery_thread.start()
+        try:
+            self.battery_thread = threading.Thread(target=self.drain_battery)
+            self.battery_thread.start()
+        except KeyboardInterrupt:
+            print("Interrupted")
+            self.mqtt_client.disconnect()
 
     def stop_battery_drain(self):
         """Stops the battery drain thread."""
         print("STOP BATTERY DRAIN")
+        print("Current state" + self.stm.state)
         self._logger.info("Battery drain stopped")
         self.running = False
         if self.battery_thread:
@@ -190,3 +198,23 @@ class ScooterLogic:
 
     def battery_drained(self):
         self._logger.info("Battery drained")
+        print("Current state" + self.stm.state)
+
+    def drain_battery(self):
+        """Drains the battery level over time."""
+        while self.running:
+            if(self.battery_level>0):
+                self.battery_level -= 0.5
+            display_battery(self.battery_level)
+            self._logger.info(f'Battery level: {self.battery_level}')
+            print(self.stm.state)
+            if self.battery_level <= 0:
+                self._logger.debug('Battery drained')
+                self.stm.send("battery_drained", "scooterMachine")
+                self.running = False
+                display_text("Battery drained", [255, 0, 0])
+            else:
+                time.sleep(0.5)
+
+    def test(self):
+        print(self.stm.state)
