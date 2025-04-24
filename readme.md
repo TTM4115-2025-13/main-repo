@@ -1,5 +1,7 @@
 # E-scooter System
 
+![Supported Python version](https://img.shields.io/badge/python-3.12-blue)
+
 This project is an IoT-based e-scooter system consisting of three main components:
 
 1. **Scooter software**: Manages the state and operations of the scooters.
@@ -13,16 +15,17 @@ This project is an IoT-based e-scooter system consisting of three main component
 .gitignore
 readme.md
 scooter/
+    requirements.txt
     Display.py
     requirements.txt
     ScooterClient.py
     ScooterLogic.py
+    ZoneLogic.py
 server/
-    main.py
-Unit 9/
-    TimerCommandSender.py
-    TimerManager.py
+    requirements.txt
+    serverapp.py
 userapp/
+    requirements.txt
     userapp.py
 ```
 
@@ -89,10 +92,14 @@ The server handles HTTP requests and communicates with the scooters via MQTT.
 ### Running the Server
 
 1. Navigate to the `server/` directory.
-2. Start the server:
+2. Start the server with arguments: source IP for server and source port:
    ```shell
-   python main.py
+   python serverapp.py SOURCE PORT
    ```
+    * Example:
+    ```
+    python serverapp.py 10.52.195.76 8080
+    ```
 
 ---
 
@@ -109,10 +116,14 @@ The user app provides a GUI for users to interact with the system.
 ### Running the User App
 
 1. Navigate to the `userapp/` directory.
-2. Start the app:
+2. Start the userapp with arguments: source IP for server and source port:
    ```shell
-   python userapp.py
+   python serverapp.py SOURCE PORT
    ```
+    * Example:
+    ```
+    python userapp.py 10.52.195.76 8080
+    ```
 
 ---
 
@@ -124,13 +135,13 @@ The project uses the following Python libraries:
 - `paho-mqtt`: For MQTT communication.
 - `sense-hat`: For Raspberry Pi Sense HAT display.
 - `appJar`: For creating the user app GUI.
-
+- `Requests`: For promises in Python
 Install all dependencies using the provided `requirements.txt` files in their respective directories.
 
 ---
 
 ## Notes
-
+- Current implemtation does not work with the latest version of python (3.13)
+    - Python 3.12 has been tested and works, older versions may work
 - Ensure the MQTT broker is running and accessible at `mqtt20.iik.ntnu.no`.
-- Update IP addresses and ports in the code if needed.
-- The server runs on `http://172.20.10.9:8080` by default.
+- Ensure the same IP/PORT combination is used for both server and userapp

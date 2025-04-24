@@ -57,6 +57,7 @@ class MQTTComponent:
             pass
         elif command == 'scooter_locked':
             self.httpserver.scooters[sid].rented = False
+            self.httpserver.scooters[sid].claimed = False
             self.httpserver.scooters[sid].invalidParking = False
             self.httpserver.scooters[sid].parked = True
             # ignore

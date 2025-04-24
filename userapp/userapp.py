@@ -6,12 +6,23 @@ import logging
 import requests # type: ignore
 import asyncio
 import sys
+import argparse
 
-SERVERURL = '10.22.97.222'
-SERVERPORT = '8080'
+#SERVERURL = '192.168.87.181'
+#SERVERPORT = '8080'
 
-#SERVERURL = sys.argv[1]
-#SERVERPORT = sys.argv[2]
+parser = argparse.ArgumentParser(
+    prog='userapp.py',
+    description='Client side for renting scooters',
+)
+parser.add_argument('source')
+parser.add_argument('port')
+args = parser.parse_args()
+
+print(args)
+
+SERVERURL = args.source
+SERVERPORT = args.port
 
 # Used for simulating scooters
 class Scooter:
@@ -35,10 +46,10 @@ class UserApp:
     The frontend component for users to list/rent/claim/unrent scooters.
     """
 
-    def __init__(self, scooterList, server):
+    def __init__(self, scooterList, serverurl, serverport):
 
         self.scooterList = scooterList
-        self.server = server
+        self.server = 'http://'+serverurl+':'+serverport
 
         # get the logger object for the component
         self._logger = logging.getLogger(__name__)
@@ -75,7 +86,7 @@ class UserApp:
             print('error')
 
     def create_gui(self):
-        self.app = gui('Scooter App', '600x400')
+        self.app = gui('Scooter App', '600x400',handleArgs=False)
 
         #Set colors. Does not work for buttons :)
         self.app.setBg('#EEEEEE')
@@ -91,8 +102,19 @@ class UserApp:
         ### REQUEST LIST OF SCOOTERS
         self.app.startLabelFrame('List nearby scooters',0,0,1,2)
         def on_button_pressed_start():
+            
+            # Resetting frame(s) before updating
             self.app.openLabelFrame('List nearby scooters')
             self.app.emptyCurrentContainer()
+            self.app.openLabelFrame('Rent scooters')
+            self.app.emptyCurrentContainer()
+            self.app.openLabelFrame('Claim scooters')
+            self.app.emptyCurrentContainer()
+
+            self.scooterList = []
+
+            self.app.openLabelFrame('List nearby scooters')
+            self.app.addButton('List nearby scooters',on_button_pressed_start)
 
             command = Command('list')
             response = self.CustomGETrequest(command)
@@ -124,7 +146,6 @@ class UserApp:
                     )
             else:
                 self.app.infoBox('Error', 'No scooters available', parent=None)
-            self.app.addButton('List nearby scooters',on_button_pressed_start)
             
         self.app.addButton('List nearby scooters',on_button_pressed_start)
         self.app.stopLabelFrame()
@@ -135,16 +156,25 @@ class UserApp:
         def on_button_pressed_rent(title):
             id = extract_scooter_id(title)
             index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
-            self.scooterList[index].rented = True
+
+
+            try:
+                command = Command('rent',id)
+                self.CustomGETrequest(command)
+            except:
+                print('request failed')
+
             print('Started a rental of {}'.format(id))
+            self.scooterList[index].rented = True
 
             self.app.openLabelFrame('Active rentals')
             self.app.addButton(
-                'ID: {} - Stop rental'.format(id),on_button_pressed_stop
+                'ID: {} - Stop rental'
+                .format(id),
+                on_button_pressed_stop
             )
 
-            command = Command('rent',id)
-            self.CustomGETrequest(command)
+            
 
         self.app.stopLabelFrame()
 
@@ -187,7 +217,8 @@ class UserApp:
             else:
                 self.scooterList[index].rented = False
                 print('Stopped a rental of {}'.format(id))
-                self.app.removeButton('ID: {} - Stop rental'.format(id)) #Deletes button, underlying tkinter function
+                self.app.removeButton('ID: {} - Stop rental'.format(id))
+                self.app.removeButton('ID: {} - Unclaim'.format(id))
 
         self.app.stopLabelFrame()
 
@@ -249,18 +280,21 @@ async def testConnection(server):
     return canConnect
 
 
-async def runApp(server):
+async def runApp(serverurl,serverport):
 
     #TEMP solution:
     scooterList = list_of_scooters
 
-    able_to_connect = await testConnection(server)
+    able_to_connect = await testConnection('http://'+serverurl+':'+serverport)
 
     if able_to_connect:
-        return UserApp(scooterList,server)
+        return UserApp(scooterList,serverurl,serverport)
     else:
         print('Cannot connect to server')
         
-    
-app=asyncio.run(runApp('http://'+SERVERURL+':'+SERVERPORT))
 
+if __name__ == '__main__':
+    try:
+        app=asyncio.run(runApp(SERVERURL,SERVERPORT))
+    except KeyboardInterrupt:
+        print('Program stopped by interrupt')
