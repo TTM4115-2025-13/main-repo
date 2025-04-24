@@ -17,7 +17,6 @@ readme.md
 scooter/
     requirements.txt
     Display.py
-    requirements.txt
     ScooterClient.py
     ScooterLogic.py
     ZoneLogic.py
