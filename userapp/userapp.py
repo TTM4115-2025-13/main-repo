@@ -3,17 +3,18 @@
 #import json
 from appJar import gui
 import logging
-
-import random
-import requests # type: ignore #Gidder ikkje fikse
+import requests # type: ignore
 import asyncio
+import sys
+
+SERVERURL = '10.22.75.56'
+SERVERPORT = '8080'
+
+SERVERURL = sys.argv[1]
+SERVERPORT = int(sys.argv[2])
 
 # Used for simulating scooters
 class Scooter:
-    """
-    Class for scooters\\
-    Need to revaluate how necessary this is, we only deal with "id"s on the frontend
-    """
     def __init__(self, id, distance=None, battery=None):
         self.id = id
         self.distance = distance #Needed?
@@ -24,10 +25,6 @@ class Scooter:
 list_of_scooters = []
 
 class Command:
-    """
-    Class for Commands\\
-    Can just use dicts, but why not?
-    """
     def __init__(self,title,id=None):
         self.title = title
         self.id = id
@@ -104,8 +101,8 @@ class UserApp:
             for i in range(len(self.scooterList)):
                 self.app.addLabel(
                     'l{}'.format(i),
-                    'ID: {} distance : {}, battery : {}'
-                        .format(self.scooterList[i].id, self.scooterList[i].distance, self.scooterList[i].battery))
+                    'ID: {}'
+                        .format(self.scooterList[i].id))
             self.app.openLabelFrame('Rent scooters')
             print('Creating rent list')
             for i in range(len(self.scooterList)):
@@ -168,13 +165,18 @@ class UserApp:
         def on_button_pressed_stop(title):
             id = extract_scooter_id(title)
             index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
-            self.scooterList[index].rented = False
-            print('Stopped a rental of {}'.format(id))
+
 
             command = Command('unrent',id)
-            self.CustomGETrequest(command)
-
-            self.app.removeButton('ID: {} - Stop rental'.format(id)) #Deletes button, underlying tkinter function
+            response = self.CustomGETrequest(command)
+            print(response)
+            if 'errormessage' in response:
+                if response['errormessage'] == 'invalid_parking':
+                    self.app.infoBox(title, 'invalid parking', parent=None)
+            else:
+                self.scooterList[index].rented = False
+                print('Stopped a rental of {}'.format(id))
+                self.app.removeButton('ID: {} - Stop rental'.format(id)) #Deletes button, underlying tkinter function
 
         self.app.stopLabelFrame()
 
@@ -188,8 +190,8 @@ class UserApp:
 
             self.app.removeButton('ID: {} - Unclaim'.format(id)) #Deletes button, underlying tkinter function
 
-            command = Command('unclaim',id)
-            self.CustomGETrequest(command)
+            #command = Command('unclaim',id)
+            #self.CustomGETrequest(command)
 
 
         self.app.stopLabelFrame()
@@ -222,7 +224,7 @@ async def testConnection(server):
     canConnect = False
 
     try:
-        response = requests.get(server) #Assumed to be enabled
+        response = requests.get(server) #Sends GET to mainpage to check connectivity
         if response.status_code==200:
             print('Connection successfull')
             canConnect = True
@@ -249,5 +251,5 @@ async def runApp(server):
         print('Cannot connect to server')
         
     
-app=asyncio.run(runApp('http://10.22.98.17:8080'))
+app=asyncio.run(runApp('http://'+SERVERURL+':'+SERVERPORT))
 
