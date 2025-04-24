@@ -117,7 +117,7 @@ The user app provides a GUI for users to interact with the system.
 1. Navigate to the `userapp/` directory.
 2. Start the userapp with arguments: source IP for server and source port:
    ```shell
-   python serverapp.py SOURCE PORT
+   python userapp.py SOURCE PORT
    ```
     * Example:
     ```
