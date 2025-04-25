@@ -171,7 +171,14 @@ class ScooterLogic:
             display_status("Locked", [0, 0, 255])
         else:
             self._logger.warning("Scooter not stopped: Invalid zone")
+            payload = {
+                'id': f'{self.client.id}',
+                'command': 'unable_to_lock'
+            }
+            self.client.publish(MQTT_TOPIC_OUTPUT, json.dumps(payload))
             display_text("Invalid zone", [255, 0, 0])
+
+
         pass
     
 
