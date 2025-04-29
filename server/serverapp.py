@@ -106,6 +106,7 @@ class MQTTComponent:
         """
         # stop the MQTT client
         self.mqtt_client.loop_stop()
+        self.mqtt_client.disconnect()
         print('stopped')
         
 
