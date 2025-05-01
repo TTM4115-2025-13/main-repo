@@ -46,7 +46,7 @@ scp -r  .\scooter\ gruppe13@raspberrypi13:~/
 ssh gruppe13@raspberrypi13:~/scooter
 ```
 
-3. Start venv:
+3. Setup a [python venv](https://docs.python.org/3/library/venv.html) and start it:
 
 ```
 source ./venv/bin/activate
