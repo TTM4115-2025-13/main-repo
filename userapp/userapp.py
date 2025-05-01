@@ -3,17 +3,29 @@
 #import json
 from appJar import gui
 import logging
-
-import random
-import requests # type: ignore #Gidder ikkje fikse
+import requests # type: ignore
 import asyncio
+import sys
+import argparse
+
+#SERVERURL = '192.168.87.181'
+#SERVERPORT = '8080'
+
+parser = argparse.ArgumentParser(
+    prog='userapp.py',
+    description='Client side for renting scooters',
+)
+parser.add_argument('source')
+parser.add_argument('port')
+args = parser.parse_args()
+
+print(args)
+
+SERVERURL = args.source
+SERVERPORT = args.port
 
 # Used for simulating scooters
 class Scooter:
-    """
-    Class for scooters\\
-    Need to revaluate how necessary this is, we only deal with "id"s on the frontend
-    """
     def __init__(self, id, distance=None, battery=None):
         self.id = id
         self.distance = distance #Needed?
@@ -24,10 +36,6 @@ class Scooter:
 list_of_scooters = []
 
 class Command:
-    """
-    Class for Commands\\
-    Can just use dicts, but why not?
-    """
     def __init__(self,title,id=None):
         self.title = title
         self.id = id
@@ -38,10 +46,10 @@ class UserApp:
     The frontend component for users to list/rent/claim/unrent scooters.
     """
 
-    def __init__(self, scooterList, server):
+    def __init__(self, scooterList, serverurl, serverport):
 
         self.scooterList = scooterList
-        self.server = server
+        self.server = 'http://'+serverurl+':'+serverport
 
         # get the logger object for the component
         self._logger = logging.getLogger(__name__)
@@ -78,7 +86,7 @@ class UserApp:
             print('error')
 
     def create_gui(self):
-        self.app = gui('Scooter App', '600x400')
+        self.app = gui('Scooter App', '600x400',handleArgs=False)
 
         #Set colors. Does not work for buttons :)
         self.app.setBg('#EEEEEE')
@@ -94,34 +102,51 @@ class UserApp:
         ### REQUEST LIST OF SCOOTERS
         self.app.startLabelFrame('List nearby scooters',0,0,1,2)
         def on_button_pressed_start():
+            
+            # Resetting frame(s) before updating
             self.app.openLabelFrame('List nearby scooters')
+            self.app.emptyCurrentContainer()
+            self.app.openLabelFrame('Rent scooters')
+            self.app.emptyCurrentContainer()
+            self.app.openLabelFrame('Claim scooters')
+            self.app.emptyCurrentContainer()
+
+            self.scooterList = []
+
+            self.app.openLabelFrame('List nearby scooters')
+            self.app.addButton('List nearby scooters',on_button_pressed_start)
 
             command = Command('list')
-            for scooter in self.CustomGETrequest(command)['scooters']:
-                print(scooter)
-                self.scooterList.append(Scooter(id=scooter))
+            response = self.CustomGETrequest(command)
+            if len(response['scooters']) > 0:
+                for scooter in self.CustomGETrequest(command)['scooters']:
+                    print(scooter)
+                    self.scooterList.append(Scooter(id=scooter))
 
-            for i in range(len(self.scooterList)):
-                self.app.addLabel(
-                    'l{}'.format(i),
-                    'ID: {} distance : {}, battery : {}'
-                        .format(self.scooterList[i].id, self.scooterList[i].distance, self.scooterList[i].battery))
-            self.app.openLabelFrame('Rent scooters')
-            print('Creating rent list')
-            for i in range(len(self.scooterList)):
-                self.app.addButton(
-                    'ID: {} - Rent'
-                    .format(self.scooterList[i].id),
-                    on_button_pressed_rent
-                )
-            self.app.openLabelFrame('Claim scooters')
-            print('Creating claim list')
-            for i in range(len(self.scooterList)):
-                self.app.addButton(
-                    'ID: {} - Claim'
-                    .format(self.scooterList[i].id),
-                    on_button_pressed_claim
-                )
+                for i in range(len(self.scooterList)):
+                    self.app.addLabel(
+                        'l{}'.format(i),
+                        'ID: {}'
+                            .format(self.scooterList[i].id))
+                self.app.openLabelFrame('Rent scooters')
+                print('Creating rent list')
+                for i in range(len(self.scooterList)):
+                    self.app.addButton(
+                        'ID: {} - Rent'
+                        .format(self.scooterList[i].id),
+                        on_button_pressed_rent
+                    )
+                self.app.openLabelFrame('Claim scooters')
+                print('Creating claim list')
+                for i in range(len(self.scooterList)):
+                    self.app.addButton(
+                        'ID: {} - Claim'
+                        .format(self.scooterList[i].id),
+                        on_button_pressed_claim
+                    )
+            else:
+                self.app.infoBox('Error', 'No scooters available', parent=None)
+            
         self.app.addButton('List nearby scooters',on_button_pressed_start)
         self.app.stopLabelFrame()
 
@@ -131,16 +156,25 @@ class UserApp:
         def on_button_pressed_rent(title):
             id = extract_scooter_id(title)
             index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
-            self.scooterList[index].rented = True
+
+
+            try:
+                command = Command('rent',id)
+                self.CustomGETrequest(command)
+            except:
+                print('request failed')
+
             print('Started a rental of {}'.format(id))
+            self.scooterList[index].rented = True
 
             self.app.openLabelFrame('Active rentals')
             self.app.addButton(
-                'ID: {} - Stop rental'.format(id),on_button_pressed_stop
+                'ID: {} - Stop rental'
+                .format(id),
+                on_button_pressed_stop
             )
 
-            command = Command('rent',id)
-            self.CustomGETrequest(command)
+            
 
         self.app.stopLabelFrame()
 
@@ -150,15 +184,20 @@ class UserApp:
             id = extract_scooter_id(title)
             print(id)
             index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
-            print('claimed scooter {}'.format(id))
-            self.scooterList[index].claimed = True
-            self.app.openLabelFrame('Active claims')
-            self.app.addButton(
-                'ID: {} - Unclaim'.format(id),on_button_pressed_unclaim
-            )
+
 
             command = Command('claim',id)
-            self.CustomGETrequest(command)
+            response = self.CustomGETrequest(command)
+            if 'errormessage' in response:
+                if response['errormessage'] == 'already_claimed':
+                    self.app.infoBox('Error', 'Already claimed', parent=None)
+            else:
+                self.scooterList[index].claimed = True
+                print('claimed scooter {}'.format(id))
+                self.app.openLabelFrame('Active claims')
+                self.app.addButton(
+                    'ID: {} - Unclaim'.format(id),on_button_pressed_unclaim
+                )
 
         self.app.stopLabelFrame()
 
@@ -168,13 +207,18 @@ class UserApp:
         def on_button_pressed_stop(title):
             id = extract_scooter_id(title)
             index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
-            self.scooterList[index].rented = False
-            print('Stopped a rental of {}'.format(id))
+
 
             command = Command('unrent',id)
-            self.CustomGETrequest(command)
-
-            self.app.removeButton('ID: {} - Stop rental'.format(id)) #Deletes button, underlying tkinter function
+            response = self.CustomGETrequest(command)
+            if 'errormessage' in response:
+                if response['errormessage'] == 'invalid_parking':
+                    self.app.infoBox('Error', 'Invalid parking', parent=None)
+            else:
+                self.scooterList[index].rented = False
+                print('Stopped a rental of {}'.format(id))
+                self.app.removeButton('ID: {} - Stop rental'.format(id))
+                self.app.removeButton('ID: {} - Unclaim'.format(id))
 
         self.app.stopLabelFrame()
 
@@ -188,8 +232,8 @@ class UserApp:
 
             self.app.removeButton('ID: {} - Unclaim'.format(id)) #Deletes button, underlying tkinter function
 
-            command = Command('unclaim',id)
-            self.CustomGETrequest(command)
+            #command = Command('unclaim',id)
+            #self.CustomGETrequest(command)
 
 
         self.app.stopLabelFrame()
@@ -222,7 +266,7 @@ async def testConnection(server):
     canConnect = False
 
     try:
-        response = requests.get(server) #Assumed to be enabled
+        response = requests.get(server) #Sends GET to mainpage to check connectivity
         if response.status_code==200:
             print('Connection successfull')
             canConnect = True
@@ -236,18 +280,21 @@ async def testConnection(server):
     return canConnect
 
 
-async def runApp(server):
+async def runApp(serverurl,serverport):
 
     #TEMP solution:
     scooterList = list_of_scooters
 
-    able_to_connect = await testConnection(server)
+    able_to_connect = await testConnection('http://'+serverurl+':'+serverport)
 
     if able_to_connect:
-        return UserApp(scooterList,server)
+        return UserApp(scooterList,serverurl,serverport)
     else:
         print('Cannot connect to server')
         
-    
-app=asyncio.run(runApp('http://10.22.98.17:8080'))
 
+if __name__ == '__main__':
+    try:
+        app=asyncio.run(runApp(SERVERURL,SERVERPORT))
+    except KeyboardInterrupt:
+        print('Program stopped by interrupt')
