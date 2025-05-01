@@ -8,9 +8,6 @@ import asyncio
 import sys
 import argparse
 
-#SERVERURL = '192.168.87.181'
-#SERVERPORT = '8080'
-
 parser = argparse.ArgumentParser(
     prog='userapp.py',
     description='Client side for renting scooters',
@@ -28,8 +25,8 @@ SERVERPORT = args.port
 class Scooter:
     def __init__(self, id, distance=None, battery=None):
         self.id = id
-        self.distance = distance #Needed?
-        self.battery = battery #Needed?
+        self.distance = distance #Future feature
+        self.battery = battery #Future feature
         self.rented = False
         self.claimed = False
 
@@ -88,7 +85,7 @@ class UserApp:
     def create_gui(self):
         self.app = gui('Scooter App', '600x400',handleArgs=False)
 
-        #Set colors. Does not work for buttons :)
+        #Set colors. Does not work for buttons.
         self.app.setBg('#EEEEEE')
         self.app.setFg('#000000')
 
@@ -157,7 +154,6 @@ class UserApp:
             id = extract_scooter_id(title)
             index = [i for i,x in enumerate(self.scooterList) if x.id == str(id)][0]
 
-
             try:
                 command = Command('rent',id)
                 self.CustomGETrequest(command)
@@ -173,8 +169,6 @@ class UserApp:
                 .format(id),
                 on_button_pressed_stop
             )
-
-            
 
         self.app.stopLabelFrame()
 
@@ -201,7 +195,6 @@ class UserApp:
 
         self.app.stopLabelFrame()
 
-
         ### LIST OF ACTIVE RENTALS
         self.app.startLabelFrame('Active rentals',1,1,1)
         def on_button_pressed_stop(title):
@@ -222,7 +215,7 @@ class UserApp:
 
         self.app.stopLabelFrame()
 
-        ### LIST OF CLAIMS
+        ### LIST OF Active CLAIMS
         self.app.startLabelFrame('Active claims',1,2,1)
         def on_button_pressed_unclaim(title):
             id = extract_scooter_id(title)
@@ -230,11 +223,7 @@ class UserApp:
             print('Stopped a claim of {}'.format(id))
             self.scooterList[index].claimed = False
 
-            self.app.removeButton('ID: {} - Unclaim'.format(id)) #Deletes button, underlying tkinter function
-
-            #command = Command('unclaim',id)
-            #self.CustomGETrequest(command)
-
+            self.app.removeButton('ID: {} - Unclaim'.format(id))
 
         self.app.stopLabelFrame()
         
@@ -260,7 +249,6 @@ logger.addHandler(ch)
 
 
 # Async functions to ensure app can connect to server and get list
-# Might remove and just start component
 
 async def testConnection(server):
     canConnect = False
@@ -282,13 +270,10 @@ async def testConnection(server):
 
 async def runApp(serverurl,serverport):
 
-    #TEMP solution:
-    scooterList = list_of_scooters
-
     able_to_connect = await testConnection('http://'+serverurl+':'+serverport)
 
     if able_to_connect:
-        return UserApp(scooterList,serverurl,serverport)
+        return UserApp([],serverurl,serverport)
     else:
         print('Cannot connect to server')
         
